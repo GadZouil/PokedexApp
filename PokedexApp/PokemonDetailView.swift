@@ -8,13 +8,13 @@
 import SwiftUI
 
 struct PokemonDetailView: View {
-    let pokemon: PokemonModel                 // Utilisé en "let" pour afficher ses infos de base
+    let pokemon: PokemonModel
     @ObservedObject var favoriteManager = FavoriteManager.shared
 
     @State private var showAlert = false
     @State private var combatMessage = ""
 
-    // Calculer si le Pokémon est favori en se basant sur favoriteManager.favorites
+    // Calculer si le Pokémon est favori
     private var isPokemonFavorite: Bool {
         favoriteManager.favorites.contains(pokemon.id)
     }
@@ -96,13 +96,11 @@ struct PokemonDetailView: View {
                 .cornerRadius(12)
             }
 
-            // ⚔️ Bouton Combat
-            Button(action: {
-                simulateCombat(pokemon: pokemon)
-            }) {
+            // ⚔️ Bouton Combat – ouvre la vue BattleView
+            NavigationLink(destination: BattleView(leftPokemon: pokemon, rightPokemon: randomOpponent())) {
                 HStack {
                     Image(systemName: "bolt.fill")
-                    Text("Combattre un Pokémon aléatoire")
+                    Text("Combattre")
                 }
                 .foregroundColor(.white)
                 .padding()
@@ -128,7 +126,7 @@ struct PokemonDetailView: View {
         }
     }
 
-    // ⚙️ Basculer l'état favori du Pokémon
+    // Bascule le statut favori
     private func toggleFavorite() {
         withAnimation {
             if isPokemonFavorite {
@@ -139,65 +137,51 @@ struct PokemonDetailView: View {
         }
     }
 
-    // 🥊 Simuler un combat
-    private func simulateCombat(pokemon: PokemonModel) {
-        let opponentID = Int.random(in: 1...151)
-        let opponentURL = "https://pokeapi.co/api/v2/pokemon/\(opponentID)"
-
-        Task {
-            do {
-                // On veut un détail complet !
-                let opponent = try await PokemonAPI.shared.fetchPokemonDetails(from: opponentURL)
-                determineWinner(pokemon1: pokemon, pokemon2: opponent)
-            } catch {
-                print("[⚠️ ERREUR] Échec de récupération de l'adversaire : \(error)")
-            }
-        }
+    // Exemple de fonction pour sélectionner un adversaire random
+    private func randomOpponent() -> PokemonModel {
+        // Pour l'exemple, on retourne Pikachu avec des stats de base
+        let pikachuStats: [PokemonStat] = [
+            PokemonStat(baseStat: 55, stat: StatInfo(name: "attack")),
+            PokemonStat(baseStat: 40, stat: StatInfo(name: "defense")),
+            PokemonStat(baseStat: 90, stat: StatInfo(name: "speed"))
+        ]
+        return PokemonModel(
+            id: 25,
+            name: "Pikachu",
+            sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png"),
+            types: [PokemonType(type: TypeInfo(name: "electric"))],
+            stats: pikachuStats,
+            detailUrl: nil
+        )
     }
 
-
-    // 🏆 Déterminer le vainqueur du combat
-    private func determineWinner(pokemon1: PokemonModel, pokemon2: PokemonModel) {
-        let statsToCompare = ["attack", "defense", "speed"]
-
-        let score1 = statsToCompare.reduce(0) { partialResult, statName in
-            partialResult + (pokemon1.getStat(statName) > pokemon2.getStat(statName) ? 1 : 0)
-        }
-        let score2 = statsToCompare.count - score1
-
-        let winner: String
-        if score1 > score2 { winner = pokemon1.name.capitalized }
-        else if score2 > score1 { winner = pokemon2.name.capitalized }
-        else { winner = "Match nul" }
-
-        // 🛠️ Afficher les stats
-        combatMessage = """
-        ⚔️ Combat ⚔️
-
-        🟦 \(pokemon1.name.capitalized)
-        - Attaque : \(pokemon1.attack)
-        - Défense : \(pokemon1.defense)
-        - Vitesse : \(pokemon1.speed)
-
-        🆚
-
-        🟥 \(pokemon2.name.capitalized)
-        - Attaque : \(pokemon2.attack)
-        - Défense : \(pokemon2.defense)
-        - Vitesse : \(pokemon2.speed)
-
-        🎯 Gagnant : \(winner)
-        """
-        showAlert = true
-    }
-
-
-    // 🏞️ Image placeholder
+    // 🏞️ Vue placeholder pour l'image
     private var placeholderImage: some View {
         Image(systemName: "photo")
             .resizable()
             .scaledToFit()
             .frame(width: 200, height: 200)
             .foregroundColor(.gray)
+    }
+}
+
+struct PokemonDetailView_Previews: PreviewProvider {
+    static var previews: some View {
+        let bulbasaurStats: [PokemonStat] = [
+            PokemonStat(baseStat: 49, stat: StatInfo(name: "attack")),
+            PokemonStat(baseStat: 49, stat: StatInfo(name: "defense")),
+            PokemonStat(baseStat: 45, stat: StatInfo(name: "speed"))
+        ]
+        let bulbasaur = PokemonModel(
+            id: 1,
+            name: "Bulbasaur",
+            sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png"),
+            types: [PokemonType(type: TypeInfo(name: "grass"))],
+            stats: bulbasaurStats,
+            detailUrl: nil
+        )
+        NavigationView {
+            PokemonDetailView(pokemon: bulbasaur)
+        }
     }
 }

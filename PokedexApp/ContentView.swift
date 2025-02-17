@@ -39,13 +39,14 @@ struct ContentView: View {
                 } else {
                     let filteredPokemons = filterAndSortPokemons()
                     ScrollView {
-                        LazyVStack {
+                        LazyVStack(spacing: 10) {
                             ForEach(filteredPokemons) { pokemon in
                                 NavigationLink(destination: PokemonDetailView(pokemon: pokemon)) {
                                     pokemonRow(for: pokemon)
                                 }
                             }
                         }
+                        .padding(.horizontal)
                     }
                     .background(
                         LinearGradient(colors: [.blue.opacity(0.2), .purple.opacity(0.2)],
