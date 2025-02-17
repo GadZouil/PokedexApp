@@ -12,6 +12,7 @@ class PokemonAPI {
     static let shared = PokemonAPI()
 
     // URL de base pour récupérer les 151 premiers Pokémon
+    // URL de base pour récupérer les 151 premiers Pokémon
     private let baseURL = "https://pokeapi.co/api/v2/pokemon?limit=151"
 
     // Récupérer la liste des Pokémon
