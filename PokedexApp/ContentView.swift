@@ -15,18 +15,19 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             List(pokemons) { pokemon in
-                HStack {
-                    // Affiche l'image du Pokémon
-                    AsyncImage(url: URL(string: pokemon.sprites.front_default)) { image in
-                        image.resizable()
-                            .frame(width: 60, height: 60)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.red, lineWidth: 2))
-                    } placeholder: {
-                        ProgressView()
+                NavigationLink(destination: PokemonDetailView(pokemon: pokemon)) {
+                    HStack {
+                        AsyncImage(url: URL(string: pokemon.sprites.front_default)) { image in
+                            image.resizable()
+                                .frame(width: 60, height: 60)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.red, lineWidth: 2))
+                        } placeholder: {
+                            ProgressView()
+                        }
+                        Text(pokemon.name.capitalized)
+                            .fontWeight(.bold)
                     }
-                    Text(pokemon.name.capitalized)
-                        .fontWeight(.bold)
                 }
             }
             .navigationTitle("Pokédex")

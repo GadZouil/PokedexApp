@@ -15,6 +15,7 @@
 		46C577BE2D631F48009CB52D /* PokedexApp.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 46C577BC2D631F48009CB52D /* PokedexApp.xcdatamodeld */; };
 		46C577C62D6325EE009CB52D /* PokemonAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46C577C52D6325EE009CB52D /* PokemonAPI.swift */; };
 		46C577C82D63266A009CB52D /* Pokemon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46C577C72D63266A009CB52D /* Pokemon.swift */; };
+		46C577CA2D6327CC009CB52D /* PokemonDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46C577C92D6327CC009CB52D /* PokemonDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 		46C577C42D632567009CB52D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		46C577C52D6325EE009CB52D /* PokemonAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonAPI.swift; sourceTree = "<group>"; };
 		46C577C72D63266A009CB52D /* Pokemon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pokemon.swift; sourceTree = "<group>"; };
+		46C577C92D6327CC009CB52D /* PokemonDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokemonDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +62,7 @@
 		46C577B02D631F47009CB52D /* PokedexApp */ = {
 			isa = PBXGroup;
 			children = (
+				46C577C92D6327CC009CB52D /* PokemonDetailView.swift */,
 				46C577C72D63266A009CB52D /* Pokemon.swift */,
 				46C577C52D6325EE009CB52D /* PokemonAPI.swift */,
 				46C577C42D632567009CB52D /* Info.plist */,
@@ -156,6 +159,7 @@
 				46C577B42D631F47009CB52D /* ContentView.swift in Sources */,
 				46C577C62D6325EE009CB52D /* PokemonAPI.swift in Sources */,
 				46C577B22D631F47009CB52D /* PokedexAppApp.swift in Sources */,
+				46C577CA2D6327CC009CB52D /* PokemonDetailView.swift in Sources */,
 				46C577C82D63266A009CB52D /* Pokemon.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
