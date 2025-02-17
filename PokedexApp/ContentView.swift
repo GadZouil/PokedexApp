@@ -1,3 +1,10 @@
+//
+//  ContentView.swift
+//  PokedexApp
+//
+//  Created by Ethan LEGROS on 2/17/25.
+//
+
 import SwiftUI
 import CoreData
 
@@ -174,9 +181,32 @@ struct ContentView: View {
     }
 
     // MARK: - Affichage d'un Pokémon (Row)
+    // Ajoutez cette fonction utilitaire (vous pouvez la placer dans ContentView ou dans une extension commune)
+    func colorForType(_ type: String) -> Color {
+        switch type.lowercased() {
+        case "fire":      return .red
+        case "water":     return .blue
+        case "grass":     return .green
+        case "electric":  return .yellow
+        case "rock":      return .gray
+        case "ground":    return .brown
+        case "psychic":   return .purple
+        case "bug":       return Color.green.opacity(0.7)
+        case "ghost":     return .indigo
+        case "dragon":    return .indigo
+        case "dark":      return .black
+        case "steel":     return .gray
+        case "fairy":     return .pink
+        case "flying":    return Color.blue.opacity(0.5)
+        case "ice":       return .cyan
+        case "normal":    return Color.gray.opacity(0.5)
+        default:          return .gray
+        }
+    }
+
     private func pokemonRow(for pokemon: PokemonModel) -> some View {
         HStack {
-            // Image : Recharge si `nil`
+            // Image du Pokémon
             if let frontURL = pokemon.sprites.frontDefault,
                let url = URL(string: frontURL) {
                 AsyncImage(url: url) { phase in
@@ -195,7 +225,6 @@ struct ContentView: View {
                     }
                 }
             } else {
-                // ❗ Forcer le chargement des détails si image manquante
                 placeholderImage()
                     .task {
                         if let detailUrl = pokemon.detailUrl {
@@ -210,8 +239,8 @@ struct ContentView: View {
                         }
                     }
             }
-
-            // Nom et Type
+            
+            // Infos (nom et type)
             VStack(alignment: .leading) {
                 Text(pokemon.formattedName)
                     .fontWeight(.bold)
@@ -221,10 +250,10 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
             }
             .animation(.easeInOut, value: searchText)
-
+            
             Spacer()
-
-            // Bouton Favori
+            
+            // Bouton favori
             Button {
                 toggleFavorite(pokemon: pokemon)
             } label: {
@@ -239,10 +268,13 @@ struct ContentView: View {
             .buttonStyle(.plain)
         }
         .padding(.vertical, 5)
-        .background(Color(.systemGray6))
+        .padding(.horizontal)
+        // Le bandeau a pour fond la couleur du type principal, en légère transparence
+        .background(colorForType(pokemon.primaryType).opacity(0.3))
         .cornerRadius(10)
         .shadow(radius: 3)
     }
+
 
 
     // MARK: - Placeholder Image

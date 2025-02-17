@@ -13,6 +13,29 @@ struct PokemonDetailView: View {
 
     @State private var showAlert = false
     @State private var combatMessage = ""
+    
+    // Fonction pour retourner une couleur selon le type
+    func colorForType(_ type: String) -> Color {
+        switch type.lowercased() {
+        case "fire":      return .red
+        case "water":     return .blue
+        case "grass":     return .green
+        case "electric":  return .yellow
+        case "rock":      return .gray
+        case "ground":    return .brown
+        case "psychic":   return .purple
+        case "bug":       return Color.green.opacity(0.7)
+        case "ghost":     return .indigo
+        case "dragon":    return .indigo
+        case "dark":      return .black
+        case "steel":     return .gray
+        case "fairy":     return .pink
+        case "flying":    return Color.blue.opacity(0.5)
+        case "ice":       return .cyan
+        case "normal":    return Color.gray.opacity(0.5)
+        default:          return .gray
+        }
+    }
 
     // Calculer si le Pokémon est favori
     private var isPokemonFavorite: Bool {
@@ -21,7 +44,7 @@ struct PokemonDetailView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // 🖼️ Image principale
+            // Image principale
             if let imageUrl = pokemon.sprites.frontDefault,
                let url = URL(string: imageUrl) {
                 AsyncImage(url: url) { phase in
@@ -45,27 +68,27 @@ struct PokemonDetailView: View {
             } else {
                 placeholderImage
             }
-
-            // 🏷️ Nom et types
+            
+            // Nom et types
             Text(pokemon.formattedName)
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundColor(.blue)
-
-            // 🌀 Types
+            
+            // Étiquettes de type colorées
             HStack {
                 ForEach(pokemon.types, id: \.type.name) { pokeType in
                     Text(pokeType.type.name.capitalized)
                         .padding(10)
-                        .background(Color.green.opacity(0.2))
+                        .background(colorForType(pokeType.type.name).opacity(0.2))
                         .clipShape(Capsule())
                         .overlay(
-                            Capsule().stroke(Color.green, lineWidth: 2)
+                            Capsule().stroke(colorForType(pokeType.type.name), lineWidth: 2)
                         )
                 }
             }
-
-            // 📊 Statistiques principales
+            
+            // Statistiques principales
             VStack(alignment: .leading, spacing: 10) {
                 Text("📈 Statistiques :")
                     .font(.headline)
@@ -81,8 +104,8 @@ struct PokemonDetailView: View {
                 }
             }
             .padding()
-
-            // ⭐ Bouton Favori
+            
+            // Bouton Favori
             Button(action: {
                 toggleFavorite()
             }) {
@@ -95,9 +118,13 @@ struct PokemonDetailView: View {
                 .background(isPokemonFavorite ? Color.red : Color.blue)
                 .cornerRadius(12)
             }
-
-            // ⚔️ Bouton Combat – ouvre la vue BattleView
-            NavigationLink(destination: BattleView(leftPokemon: pokemon, rightPokemon: randomOpponent())) {
+            
+            // Bouton Combat qui ouvre la vue BattleView
+            NavigationLink(destination: BattleView(
+                leftPokemon: pokemon,
+                initialOpponent: randomOpponent(),
+                availableOpponents: sampleOpponents()
+            )) {
                 HStack {
                     Image(systemName: "bolt.fill")
                     Text("Combattre")
@@ -107,7 +134,7 @@ struct PokemonDetailView: View {
                 .background(Color.purple)
                 .cornerRadius(12)
             }
-
+            
             Spacer()
         }
         .padding()
@@ -125,7 +152,7 @@ struct PokemonDetailView: View {
                   dismissButton: .default(Text("OK")))
         }
     }
-
+    
     // Bascule le statut favori
     private func toggleFavorite() {
         withAnimation {
@@ -136,26 +163,56 @@ struct PokemonDetailView: View {
             }
         }
     }
-
-    // Exemple de fonction pour sélectionner un adversaire random
-    private func randomOpponent() -> PokemonModel {
-        // Pour l'exemple, on retourne Pikachu avec des stats de base
-        let pikachuStats: [PokemonStat] = [
-            PokemonStat(baseStat: 55, stat: StatInfo(name: "attack")),
-            PokemonStat(baseStat: 40, stat: StatInfo(name: "defense")),
-            PokemonStat(baseStat: 90, stat: StatInfo(name: "speed"))
+    
+    // Retourne un tableau d'adversaires d'exemple
+    private func sampleOpponents() -> [PokemonModel] {
+        return [
+            PokemonModel(
+                id: 25,
+                name: "Pikachu",
+                sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png"),
+                types: [PokemonType(type: TypeInfo(name: "electric"))],
+                stats: [
+                    PokemonStat(baseStat: 55, stat: StatInfo(name: "attack")),
+                    PokemonStat(baseStat: 40, stat: StatInfo(name: "defense")),
+                    PokemonStat(baseStat: 90, stat: StatInfo(name: "speed"))
+                ],
+                detailUrl: nil
+            ),
+            PokemonModel(
+                id: 4,
+                name: "Charmander",
+                sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"),
+                types: [PokemonType(type: TypeInfo(name: "fire"))],
+                stats: [
+                    PokemonStat(baseStat: 52, stat: StatInfo(name: "attack")),
+                    PokemonStat(baseStat: 43, stat: StatInfo(name: "defense")),
+                    PokemonStat(baseStat: 65, stat: StatInfo(name: "speed"))
+                ],
+                detailUrl: nil
+            ),
+            PokemonModel(
+                id: 7,
+                name: "Squirtle",
+                sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png"),
+                types: [PokemonType(type: TypeInfo(name: "water"))],
+                stats: [
+                    PokemonStat(baseStat: 48, stat: StatInfo(name: "attack")),
+                    PokemonStat(baseStat: 65, stat: StatInfo(name: "defense")),
+                    PokemonStat(baseStat: 43, stat: StatInfo(name: "speed"))
+                ],
+                detailUrl: nil
+            )
         ]
-        return PokemonModel(
-            id: 25,
-            name: "Pikachu",
-            sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png"),
-            types: [PokemonType(type: TypeInfo(name: "electric"))],
-            stats: pikachuStats,
-            detailUrl: nil
-        )
     }
-
-    // 🏞️ Vue placeholder pour l'image
+    
+    // Retourne un adversaire random parmi sampleOpponents, différent du Pokémon affiché
+    private func randomOpponent() -> PokemonModel {
+        let opponents = sampleOpponents().filter { $0.id != pokemon.id }
+        return opponents.randomElement() ?? sampleOpponents()[0]
+    }
+    
+    // Vue placeholder pour l'image
     private var placeholderImage: some View {
         Image(systemName: "photo")
             .resizable()

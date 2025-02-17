@@ -9,32 +9,38 @@ import SwiftUI
 
 struct BattleView: View {
     let leftPokemon: PokemonModel
-    let rightPokemon: PokemonModel
+    let availableOpponents: [PokemonModel]
+    
+    @State private var opponent: PokemonModel
+    @State private var arenaURL: String = ""
+    
+    // Positions initiales (plus centrées)
+    @State private var leftOffset: CGFloat = -40
+    @State private var rightOffset: CGFloat = 40
 
-    // Positions initiales sur l'écran
-    @State private var leftOffset: CGFloat = -50
-    @State private var rightOffset: CGFloat = 50
-
-    // Pour l'animation finale (scale et rotation)
+    // Pour les animations finales (scale et rotation)
     @State private var leftScale: CGFloat = 1.0
     @State private var rightScale: CGFloat = 1.0
     @State private var leftRotation: Angle = .zero
     @State private var rightRotation: Angle = .zero
 
-    // Etats du combat
+    // États du combat
     @State private var battleFinished = false
     @State private var winnerMessage: String = ""
     @State private var showConfetti = false
 
-    // Contrôle des attaques
-    @State private var turn: Int = 0    // 0 : attaque de gauche, 1 : attaque de droite
+    // Contrôle des attaques (alternance)
+    @State private var turn: Int = 0    // 0: attaque de gauche, 1: attaque de l'adversaire
     @State private var attackCount: Int = 0
     @State private var totalAttacks: Int = 0
 
-    // Durée du combat (en secondes) en fonction de la différence de puissance
+    // Effet flash pendant une attaque
+    @State private var attackFlash: Bool = false
+
+    // Durée du combat en fonction de la différence de puissance
     var fightDuration: Double {
         let leftPower = leftPokemon.attack + leftPokemon.defense + leftPokemon.speed
-        let rightPower = rightPokemon.attack + rightPokemon.defense + rightPokemon.speed
+        let rightPower = opponent.attack + opponent.defense + opponent.speed
         let difference = abs(leftPower - rightPower)
         if difference < 20 {
             return 5.0
@@ -44,20 +50,49 @@ struct BattleView: View {
             return 3.0
         }
     }
-
-    // Détermine le vainqueur en comparant la somme des stats
+    
+    // Détermine le vainqueur selon la somme des stats
     var winner: PokemonModel {
         let leftPower = leftPokemon.attack + leftPokemon.defense + leftPokemon.speed
-        let rightPower = rightPokemon.attack + rightPokemon.defense + rightPokemon.speed
-        return leftPower >= rightPower ? leftPokemon : rightPokemon
+        let rightPower = opponent.attack + opponent.defense + opponent.speed
+        return leftPower >= rightPower ? leftPokemon : opponent
     }
-
+    
+    // MARK: - Initialisation
+    init(leftPokemon: PokemonModel, initialOpponent: PokemonModel, availableOpponents: [PokemonModel]) {
+        self.leftPokemon = leftPokemon
+        self.availableOpponents = availableOpponents
+        _opponent = State(initialValue: initialOpponent)
+    }
+    
     var body: some View {
         ZStack {
-            Color.white.edgesIgnoringSafeArea(.all)
-
+            // Fond d'arène stable et recadré
+            AsyncImage(url: URL(string: arenaURL)) { phase in
+                if let image = phase.image {
+                    image.resizable()
+                         .aspectRatio(contentMode: .fill)
+                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                         .clipped()
+                         .ignoresSafeArea()
+                } else if phase.error != nil {
+                    Color.gray.ignoresSafeArea()
+                } else {
+                    ProgressView().ignoresSafeArea()
+                }
+            }
+            
+            // Effet flash lors d'une attaque
+            if attackFlash {
+                Color.white
+                    .opacity(0.3)
+                    .blendMode(.plusLighter)
+                    .ignoresSafeArea()
+            }
+            
+            // Contenu principal du combat
             VStack {
-                // Affichage des stats de base en haut
+                // Bandeau avec noms et stats
                 HStack {
                     VStack {
                         Text(leftPokemon.formattedName)
@@ -67,16 +102,18 @@ struct BattleView: View {
                     }
                     Spacer()
                     VStack {
-                        Text(rightPokemon.formattedName)
+                        Text(opponent.formattedName)
                             .font(.headline)
-                        Text("Power: \(rightPokemon.attack + rightPokemon.defense + rightPokemon.speed)")
+                        Text("Power: \(opponent.attack + opponent.defense + opponent.speed)")
                             .font(.subheadline)
                     }
                 }
                 .padding()
-
+                .background(Color.white.opacity(0.7))
+                .cornerRadius(10)
+                
                 Spacer()
-
+                
                 // Zone de combat avec les images des Pokémon
                 HStack {
                     AsyncImage(url: URL(string: leftPokemon.sprites.frontDefault ?? "")) { phase in
@@ -95,10 +132,10 @@ struct BattleView: View {
                     .animation(.easeInOut(duration: 0.3), value: leftOffset)
                     .animation(.easeInOut(duration: 0.3), value: leftScale)
                     .animation(.easeInOut(duration: 0.3), value: leftRotation)
-
+                    
                     Spacer()
-
-                    AsyncImage(url: URL(string: rightPokemon.sprites.frontDefault ?? "")) { phase in
+                    
+                    AsyncImage(url: URL(string: opponent.sprites.frontDefault ?? "")) { phase in
                         if let image = phase.image {
                             image.resizable().scaledToFit()
                         } else if phase.error != nil {
@@ -116,9 +153,9 @@ struct BattleView: View {
                     .animation(.easeInOut(duration: 0.3), value: rightRotation)
                 }
                 .padding()
-
+                
                 Spacer()
-
+                
                 if battleFinished {
                     Text(winnerMessage)
                         .font(.largeTitle)
@@ -126,49 +163,83 @@ struct BattleView: View {
                         .foregroundColor(.blue)
                         .padding()
                 }
-
-                // Bouton pour lancer (ou relancer) le combat
-                Button(action: {
-                    startBattle()
-                }) {
-                    Text(battleFinished ? "Rejouer" : "Lancer le combat")
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
+                
+                // Boutons de contrôle du combat
+                if battleFinished {
+                    HStack {
+                        Button(action: {
+                            startBattle()
+                        }) {
+                            Text("Rejouer")
+                                .padding()
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                        Button(action: {
+                            changeOpponent()
+                        }) {
+                            Text("Changer d'adversaire")
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding()
+                } else {
+                    Button(action: {
+                        startBattle()
+                    }) {
+                        Text("Lancer le combat")
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .padding()
                 }
-                .padding()
-
+                
                 Spacer()
             }
-
+            .padding()
+            .background(Color.white.opacity(0.7))
+            .cornerRadius(15)
+            .padding()
+            
             if showConfetti {
                 ConfettiView()
                     .transition(.opacity)
             }
         }
         .navigationBarTitle("Combat", displayMode: .inline)
+        .onAppear {
+            if arenaURL.isEmpty {
+                arenaURL = randomArenaURL()
+            }
+        }
     }
-
-    // Démarre le combat en réinitialisant les états et en programmant les attaques
+    
+    // Lancement du combat (avec nouvelle arène)
     func startBattle() {
+        arenaURL = randomArenaURL()  // Nouvelle arène pour chaque nouveau combat
         battleFinished = false
         winnerMessage = ""
         showConfetti = false
         turn = 0
         attackCount = 0
         totalAttacks = Int(fightDuration / 0.8)
-        leftOffset = -50
-        rightOffset = 50
+        leftOffset = -40
+        rightOffset = 40
         leftScale = 1.0
         rightScale = 1.0
         leftRotation = .zero
         rightRotation = .zero
-
+        
         performAttack()
     }
-
-    // Exécute une attaque selon le tour en cours
+    
+    // Simulation des attaques en alternance
     func performAttack() {
         guard attackCount < totalAttacks else {
             endBattle()
@@ -176,13 +247,16 @@ struct BattleView: View {
         }
         
         if turn == 0 {
-            // Attaque du Pokémon de gauche : il avance puis recule
             withAnimation(.easeInOut(duration: 0.4)) {
-                leftOffset = 0
+                leftOffset = 20
+                attackFlash = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                attackFlash = false
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 withAnimation(.easeInOut(duration: 0.4)) {
-                    leftOffset = -50
+                    leftOffset = -40
                 }
                 attackCount += 1
                 turn = 1
@@ -191,13 +265,16 @@ struct BattleView: View {
                 }
             }
         } else {
-            // Attaque du Pokémon de droite : il avance puis recule
             withAnimation(.easeInOut(duration: 0.4)) {
-                rightOffset = 0
+                rightOffset = -20
+                attackFlash = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                attackFlash = false
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 withAnimation(.easeInOut(duration: 0.4)) {
-                    rightOffset = 50
+                    rightOffset = 40
                 }
                 attackCount += 1
                 turn = 0
@@ -207,16 +284,14 @@ struct BattleView: View {
             }
         }
     }
-
-    // Termine le combat : détermine le vainqueur et lance l'animation finale
+    
+    // Fin du combat et animation finale
     func endBattle() {
         battleFinished = true
         let winPokemon = winner
         winnerMessage = "\(winPokemon.formattedName) a gagné !"
         
-        // Animation finale : le gagnant grossit et se centre, le perdant pivote à 90°
         if winPokemon.id == leftPokemon.id {
-            // Le Pokémon de gauche gagne
             withAnimation(.easeInOut(duration: 0.5)) {
                 leftScale = 1.5
                 leftOffset = 0
@@ -225,7 +300,6 @@ struct BattleView: View {
                 rightRotation = .degrees(90)
             }
         } else {
-            // Le Pokémon de droite gagne
             withAnimation(.easeInOut(duration: 0.5)) {
                 rightScale = 1.5
                 rightOffset = 0
@@ -234,42 +308,60 @@ struct BattleView: View {
                 leftRotation = .degrees(90)
             }
         }
-        
         withAnimation(Animation.easeInOut(duration: 1).delay(0.5)) {
             showConfetti = true
         }
     }
+    
+    // Changer d'adversaire en sélectionnant un Pokémon aléatoire dans la liste (différent du leftPokemon)
+    func changeOpponent() {
+        let possibles = availableOpponents.filter { $0.id != leftPokemon.id }
+        if let newOpponent = possibles.randomElement() {
+            opponent = newOpponent
+        }
+        startBattle()
+    }
+    
+    // Retourne une URL d'image d'arène aléatoire
+    func randomArenaURL() -> String {
+        let urls = [
+            "https://i.pinimg.com/736x/0a/d7/40/0ad740bdde2d5ed0f5a641ebefaff38b.jpg",
+            "https://pokemonblog.com/wp-content/uploads/2020/05/pokemon_sword_and_shield_poke_ball_wallpaper.jpg?w=584",
+            "https://www.pokemon.com/static-assets/content-assets/cms2/img/misc/virtual-backgrounds/sword-shield/dynamax-battle.png"
+        ]
+        return urls.randomElement()!
+    }
 }
 
-// Vue simple de confettis (ici des émojis 🎉)
 struct ConfettiView: View {
     @State private var confettiItems: [ConfettiItem] = []
-
+    
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 ForEach(confettiItems) { item in
-                    Text(item.emoji)
-                        .font(.largeTitle)
+                    Circle()
+                        .fill(item.color)
+                        .frame(width: item.size, height: item.size)
                         .position(item.position)
                         .opacity(item.opacity)
-                        .animation(.linear(duration: item.duration).repeatForever(autoreverses: false), value: item.position)
+                        .animation(Animation.linear(duration: item.duration).repeatForever(autoreverses: false), value: item.position)
                 }
             }
             .onAppear {
-                confettiItems = (0..<20).map { _ in
+                confettiItems = (0..<50).map { _ in
                     ConfettiItem(
                         id: UUID(),
-                        emoji: "🎉",
-                        position: CGPoint(x: CGFloat.random(in: 0...geometry.size.width),
-                                          y: -50),
+                        color: Color(hue: Double.random(in: 0...1), saturation: 0.8, brightness: 0.9),
+                        size: CGFloat.random(in: 5...10),
+                        position: CGPoint(x: CGFloat.random(in: 0...geometry.size.width), y: -10),
                         opacity: 1,
                         duration: Double.random(in: 2...4)
                     )
                 }
                 for index in confettiItems.indices {
                     withAnimation(Animation.linear(duration: confettiItems[index].duration)) {
-                        confettiItems[index].position.y = geometry.size.height + 50
+                        confettiItems[index].position.y = geometry.size.height + 10
                         confettiItems[index].opacity = 0
                     }
                 }
@@ -281,7 +373,8 @@ struct ConfettiView: View {
 
 struct ConfettiItem: Identifiable {
     let id: UUID
-    let emoji: String
+    let color: Color
+    let size: CGFloat
     var position: CGPoint
     var opacity: Double
     let duration: Double
@@ -303,27 +396,51 @@ struct BattleView_Previews: PreviewProvider {
             stats: leftStats,
             detailUrl: nil
         )
-        let rightStats: [PokemonStat] = [
-            PokemonStat(baseStat: 52, stat: StatInfo(name: "attack")),
-            PokemonStat(baseStat: 43, stat: StatInfo(name: "defense")),
-            PokemonStat(baseStat: 65, stat: StatInfo(name: "speed"))
+        let sampleOpponents: [PokemonModel] = [
+            PokemonModel(
+                id: 25,
+                name: "Pikachu",
+                sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png"),
+                types: [PokemonType(type: TypeInfo(name: "electric"))],
+                stats: [
+                    PokemonStat(baseStat: 55, stat: StatInfo(name: "attack")),
+                    PokemonStat(baseStat: 40, stat: StatInfo(name: "defense")),
+                    PokemonStat(baseStat: 90, stat: StatInfo(name: "speed"))
+                ],
+                detailUrl: nil
+            ),
+            PokemonModel(
+                id: 4,
+                name: "Charmander",
+                sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"),
+                types: [PokemonType(type: TypeInfo(name: "fire"))],
+                stats: [
+                    PokemonStat(baseStat: 52, stat: StatInfo(name: "attack")),
+                    PokemonStat(baseStat: 43, stat: StatInfo(name: "defense")),
+                    PokemonStat(baseStat: 65, stat: StatInfo(name: "speed"))
+                ],
+                detailUrl: nil
+            ),
+            PokemonModel(
+                id: 7,
+                name: "Squirtle",
+                sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png"),
+                types: [PokemonType(type: TypeInfo(name: "water"))],
+                stats: [
+                    PokemonStat(baseStat: 48, stat: StatInfo(name: "attack")),
+                    PokemonStat(baseStat: 65, stat: StatInfo(name: "defense")),
+                    PokemonStat(baseStat: 43, stat: StatInfo(name: "speed"))
+                ],
+                detailUrl: nil
+            )
         ]
-        let rightPokemon = PokemonModel(
-            id: 4,
-            name: "Charmander",
-            sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png"),
-            types: [PokemonType(type: TypeInfo(name: "fire"))],
-            stats: rightStats,
-            detailUrl: nil
-        )
         NavigationView {
-            BattleView(leftPokemon: leftPokemon, rightPokemon: rightPokemon)
+            BattleView(leftPokemon: leftPokemon, initialOpponent: sampleOpponents[0], availableOpponents: sampleOpponents)
         }
     }
 }
 #endif
 
-// Extension pour faciliter la création d'une stat (si nécessaire)
 extension PokemonStat {
     init(baseStat: Int, stat: StatInfo) {
         self.baseStat = baseStat
