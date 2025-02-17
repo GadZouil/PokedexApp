@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var selectedType: String = "Tous"
     @State private var selectedSortOption = "Nom"
+    @State private var isDarkMode = false
     @ObservedObject var favoriteManager = FavoriteManager.shared
     
     let sortOptions = ["Nom", "Attaque"]
@@ -93,12 +94,12 @@ struct ContentView: View {
                         }
                     }
                 }
+                .background(
+                    LinearGradient(colors: [.blue.opacity(0.2), .purple.opacity(0.2)], startPoint: .top, endPoint: .bottom)
+                        .edgesIgnoringSafeArea(.all)
+                )
                 .navigationTitle("Pokédex")
                 .onAppear {
-                    // Demande de permission et planification de la notification quotidienne
-                    NotificationManager.shared.requestNotificationPermission()
-                    NotificationManager.shared.scheduleDailyPokemonNotification()
-
                     isLoading = true
                     Task {
                         do {
@@ -108,6 +109,24 @@ struct ContentView: View {
                             print("Erreur lors du chargement des Pokémon : \(error)")
                             isLoading = false
                         }
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            isDarkMode.toggle()
+                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                                windowScene.windows.first?.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
+                            }
+                        }) {
+                            Image(systemName: isDarkMode ? "moon.fill" : "sun.max.fill")
+                                .foregroundColor(.primary)
+                                .font(.title2)
+                                .padding(6)
+                                .background(Color(.systemGray5))
+                                .clipShape(Circle())
+                        }
+                        .accessibilityLabel("Basculer le mode sombre")
                     }
                 }
             }
