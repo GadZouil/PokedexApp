@@ -9,6 +9,7 @@ import SwiftUI
 
 struct PokemonDetailView: View {
     var pokemon: Pokemon
+    @ObservedObject var favoriteManager = FavoriteManager.shared
     
     var body: some View {
         VStack(spacing: 20) {
@@ -55,6 +56,24 @@ struct PokemonDetailView: View {
                 }
             }
             .padding()
+            
+            // Bouton Favori
+            Button(action: {
+                if favoriteManager.isFavorite(id: pokemon.id) {
+                    favoriteManager.removeFavorite(id: pokemon.id)
+                } else {
+                    favoriteManager.addFavorite(pokemon: pokemon)
+                }
+            }) {
+                HStack {
+                    Image(systemName: favoriteManager.isFavorite(id: pokemon.id) ? "star.fill" : "star")
+                    Text(favoriteManager.isFavorite(id: pokemon.id) ? "Retirer des favoris" : "Ajouter aux favoris")
+                }
+                .foregroundColor(.white)
+                .padding()
+                .background(favoriteManager.isFavorite(id: pokemon.id) ? Color.red : Color.blue)
+                .cornerRadius(12)
+            }
             
             Spacer()
         }
