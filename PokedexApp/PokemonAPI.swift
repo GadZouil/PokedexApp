@@ -38,12 +38,13 @@ class PokemonAPI {
     }
 
     // Récupérer les détails d'un Pokémon spécifique
-    private func fetchPokemonDetails(from url: String) async throws -> Pokemon {
+    func fetchPokemonDetails(from url: String) async throws -> Pokemon {
         guard let url = URL(string: url) else { throw URLError(.badURL) }
         let (data, _) = try await URLSession.shared.data(from: url)
         let pokemon = try JSONDecoder().decode(Pokemon.self, from: data)
         return pokemon
     }
+
 }
 
 // Structure pour la réponse de la liste

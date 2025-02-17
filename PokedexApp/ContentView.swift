@@ -44,7 +44,7 @@ struct ContentView: View {
                         Text("Type :")
                         Picker("Type", selection: $selectedType) {
                             ForEach(types, id: \.self) { type in
-                                Text(type)
+                                Text(type.capitalized)
                             }
                         }
                         .pickerStyle(MenuPickerStyle())
@@ -62,14 +62,16 @@ struct ContentView: View {
                 }
                 .padding(.bottom, 10)
 
+                // Indicateur de chargement
+                if isLoading {
+                    ProgressView("Chargement des Pokémon...")
+                        .padding()
+                }
+
                 // Liste filtrée et triée
                 let filteredPokemons = pokemons.filter { pokemon in
-                    // Filtrage par nom
                     let matchesName = searchText.isEmpty || pokemon.name.localizedCaseInsensitiveContains(searchText)
-                    
-                    // Filtrage par type (correction en lowercase)
                     let matchesType = selectedType == "Tous" || pokemon.types.contains { $0.type.name.lowercased() == selectedType.lowercased() }
-                    
                     return matchesName && matchesType
                 }
                 .sorted {
@@ -82,33 +84,18 @@ struct ContentView: View {
                     }
                 }
 
-
-                List(filteredPokemons) { pokemon in
-                    NavigationLink(destination: PokemonDetailView(pokemon: pokemon)) {
-                        HStack {
-                            AsyncImage(url: URL(string: pokemon.sprites.front_default)) { image in
-                                image.resizable()
-                                    .frame(width: 60, height: 60)
-                                    .clipShape(Circle())
-                                    .overlay(Circle().stroke(Color.red, lineWidth: 2))
-                            } placeholder: {
-                                ProgressView()
-                            }
-
-                            Text(pokemon.name.capitalized)
-                                .fontWeight(.bold)
-
-                            Spacer()
-
-                            if favoriteManager.isFavorite(id: pokemon.id) {
-                                Image(systemName: "star.fill")
-                                    .foregroundColor(.yellow)
+                ScrollView {
+                    LazyVStack {
+                        ForEach(filteredPokemons) { pokemon in
+                            NavigationLink(destination: PokemonDetailView(pokemon: pokemon)) {
+                                pokemonRow(for: pokemon)
                             }
                         }
                     }
                 }
                 .navigationTitle("Pokédex")
                 .onAppear {
+                    isLoading = true
                     Task {
                         do {
                             pokemons = try await PokemonAPI.shared.fetchPokemonList()
@@ -121,6 +108,40 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    // Fonction pour créer une carte Pokémon
+    private func pokemonRow(for pokemon: Pokemon) -> some View {
+        HStack {
+            AsyncImage(url: URL(string: pokemon.sprites.front_default)) { image in
+                image.resizable()
+                    .frame(width: 60, height: 60)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.red, lineWidth: 2))
+                    .scaleEffect(1)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.6), value: pokemon.id)
+            } placeholder: {
+                ProgressView()
+            }
+
+            Text(pokemon.name.capitalized)
+                .fontWeight(.bold)
+                .transition(.opacity)
+                .animation(.easeInOut, value: searchText)
+
+            Spacer()
+
+            if favoriteManager.isFavorite(id: pokemon.id) {
+                Image(systemName: "star.fill")
+                    .foregroundColor(.yellow)
+                    .transition(.opacity)
+                    .animation(.easeInOut, value: pokemon.id)
+            }
+        }
+        .padding(.vertical, 5)
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+        .shadow(radius: 3)
     }
 }
 
