@@ -7,5 +7,7 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Nous utilisons les notifications pour vous rappeler de découvrir des Pokémon.</string>
 </dict>
 </plist>

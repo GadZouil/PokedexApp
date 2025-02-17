@@ -95,6 +95,10 @@ struct ContentView: View {
                 }
                 .navigationTitle("Pokédex")
                 .onAppear {
+                    // Demande de permission et planification de la notification quotidienne
+                    NotificationManager.shared.requestNotificationPermission()
+                    NotificationManager.shared.scheduleDailyPokemonNotification()
+
                     isLoading = true
                     Task {
                         do {

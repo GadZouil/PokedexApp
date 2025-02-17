@@ -100,6 +100,20 @@ struct PokemonDetailView: View {
             }
             .transition(.opacity)
             
+            // Bouton pour simuler un changement de type
+            Button(action: {
+                NotificationManager.shared.simulateFavoriteTypeChangeNotification(pokemonName: pokemon.name, oldType: "electric", newType: "psychic")
+            }) {
+                HStack {
+                    Image(systemName: "bell.fill")
+                    Text("🔔 Simuler Changement de Type")
+                }
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.orange)
+                .cornerRadius(12)
+            }
+            
             Spacer()
         }
         .padding()
