@@ -15,7 +15,13 @@ struct PokemonModel: Codable, Identifiable, Equatable, Hashable {
     let types: [PokemonType]
     let stats: [PokemonStat]
 
-    /// Nom formaté avec majuscule.
+    /// Propriété locale pour la gestion du favori (non issue de l'API).
+    var isFavorite: Bool = false
+
+    /// URL des détails pour recharger les images si nécessaire.
+    var detailUrl: String?
+
+    /// Nom formaté (1ère lettre majuscule).
     var formattedName: String {
         name.capitalized
     }
@@ -31,32 +37,54 @@ struct PokemonModel: Codable, Identifiable, Equatable, Hashable {
     var defense: Int { getStat("defense") }
     var speed: Int { getStat("speed") }
 
-    /// Récupérer une statistique par son nom.
+    /// Recherche la stat par nom ("attack", "defense", "speed", "hp").
     func getStat(_ statName: String) -> Int {
         stats.first { $0.stat.name == statName }?.baseStat ?? 0
     }
+
+    /// Override du init pour gérer l'URL et ignorer la clé "isFavorite" dans le JSON.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        sprites = try container.decode(PokemonSprites.self, forKey: .sprites)
+        types = try container.decode([PokemonType].self, forKey: .types)
+        stats = try container.decode([PokemonStat].self, forKey: .stats)
+        detailUrl = nil
+        isFavorite = false
+    }
+
+    /// Initialiseur manuel pour assigner directement une URL.
+    init(id: Int, name: String, sprites: PokemonSprites, types: [PokemonType], stats: [PokemonStat], detailUrl: String?) {
+        self.id = id
+        self.name = name
+        self.sprites = sprites
+        self.types = types
+        self.stats = stats
+        self.detailUrl = detailUrl
+    }
 }
 
-// 🖼️ Images (sprites) - on ne prend que l'image principale
+/// Sprites du Pokémon (images)
 struct PokemonSprites: Codable, Hashable {
     let frontDefault: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case frontDefault = "front_default"
     }
 }
 
-// 🛠️ Type d’un Pokémon
+/// Représentation d'un type
 struct PokemonType: Codable, Hashable {
     let type: TypeInfo
 }
 
-// 🔍 Informations de type
+/// Informations sur le type (ex: "grass", "fire"...)
 struct TypeInfo: Codable, Hashable {
     let name: String
 }
 
-// 📊 Statistiques d’un Pokémon
+/// Statistiques (attaque, défense, vitesse...)
 struct PokemonStat: Codable, Hashable {
     let baseStat: Int
     let stat: StatInfo
@@ -74,7 +102,7 @@ struct PokemonStat: Codable, Hashable {
     }
 }
 
-// 🔍 Informations de statistiques
+/// Nom de la statistique
 struct StatInfo: Codable, Hashable {
     let name: String
 }

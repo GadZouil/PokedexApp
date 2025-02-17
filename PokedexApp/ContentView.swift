@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  PokedexApp
-//
-//  Created by Ethan LEGROS on 2/17/25.
-//
-
 import SwiftUI
 import CoreData
 
@@ -15,10 +8,11 @@ struct ContentView: View {
     @State private var selectedType: String = "Tous"
     @State private var selectedSortOption = "Nom"
     @State private var isDarkMode = false
+
     @ObservedObject var favoriteManager = FavoriteManager.shared
     @Environment(\.colorScheme) var colorScheme
 
-    let sortOptions = ["Nom", "Attaque"]
+    let sortOptions = ["Nom", "Attaque", "Défense", "Vitesse"]
     let types = [
         "Tous", "fire", "water", "grass", "electric", "rock", "ground", "flying",
         "psychic", "bug", "ghost", "dragon", "dark", "steel", "fairy", "normal",
@@ -30,37 +24,44 @@ struct ContentView: View {
             VStack {
                 // 🔍 Recherche et Filtres
                 searchAndFilterSection()
+                
+                //Button("Reset Favoris") {
+                //    FavoriteManager.shared.resetFavorites()
+                //}
+                //.padding()
+                //.background(Color.red)
+                //.foregroundColor(.white)
+                //.cornerRadius(8)
 
                 // 🕐 Chargement
                 if isLoading {
                     ProgressView("Chargement des Pokémon...").padding()
-                }
-
-                // 🎯 Liste filtrée et triée
-                let filteredPokemons = filterAndSortPokemons()
-
-                // 📜 Affichage de la liste
-                ScrollView {
-                    LazyVStack {
-                        ForEach(filteredPokemons) { pokemon in
-                            NavigationLink(destination: PokemonDetailView(pokemon: pokemon)) {
-                                pokemonRow(for: pokemon)
+                } else {
+                    let filteredPokemons = filterAndSortPokemons()
+                    ScrollView {
+                        LazyVStack {
+                            ForEach(filteredPokemons) { pokemon in
+                                NavigationLink(destination: PokemonDetailView(pokemon: pokemon)) {
+                                    pokemonRow(for: pokemon)
+                                }
                             }
                         }
                     }
-                }
-                .background(
-                    LinearGradient(colors: [.blue.opacity(0.2), .purple.opacity(0.2)], startPoint: .top, endPoint: .bottom)
+                    .background(
+                        LinearGradient(colors: [.blue.opacity(0.2), .purple.opacity(0.2)],
+                                       startPoint: .top,
+                                       endPoint: .bottom)
                         .edgesIgnoringSafeArea(.all)
-                )
-                .navigationTitle("Pokédex")
-                .onAppear { loadPokemons() }
-                .toolbar { darkModeToggle() }
+                    )
+                }
             }
+            .navigationTitle("Pokédex")
+            .onAppear(perform: loadPokemons)
+            .toolbar { darkModeToggle() }
         }
     }
 
-    // 🧠 Barre de recherche et filtres
+    // MARK: - Barre de recherche et filtres
     private func searchAndFilterSection() -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("🔍 Recherche et Filtres")
@@ -95,26 +96,66 @@ struct ContentView: View {
         .padding(.bottom, 10)
     }
 
-    // ⚙️ Filtrage et tri
-    private func filterAndSortPokemons() -> [PokemonModel] {
-        pokemons.filter { pokemon in
-            let matchesName = searchText.isEmpty || pokemon.name.localizedCaseInsensitiveContains(searchText)
-            let matchesType = selectedType == "Tous" || pokemon.primaryType.lowercased() == selectedType.lowercased()
-            return matchesName && matchesType
-        }
-        .sorted {
-            if selectedSortOption == "Nom" {
-                return $0.formattedName < $1.formattedName
-            } else {
-                return $0.getStat("attack") > $1.getStat("attack")
+    // MARK: - Chargement des Pokémon
+    private func loadPokemons() {
+        isLoading = true
+        Task {
+            do {
+                pokemons = try await PokemonAPI.shared.fetchPokemonList(limit: 151)
+
+                // 🔍 Vérification des images manquantes et second fetch
+                var updatedPokemons = pokemons
+                for index in updatedPokemons.indices {
+                    if updatedPokemons[index].sprites.frontDefault == nil, let url = updatedPokemons[index].detailUrl {
+                        let fullDetails = try await PokemonAPI.shared.fetchPokemonDetails(from: url)
+                        updatedPokemons[index] = fullDetails
+                    }
+                }
+
+                pokemons = updatedPokemons
+
+                // Affiche les résultats dans la console
+                for pokemon in pokemons {
+                    print("[🔍 IMAGE CHECK] \(pokemon.name): \(pokemon.sprites.frontDefault ?? "❌ Aucune image")")
+                }
+
+                isLoading = false
+            } catch {
+                print("[⚠️ ERREUR] Échec de chargement : \(error.localizedDescription)")
+                isLoading = false
             }
         }
     }
 
-    // 🌗 Basculer le mode sombre
+
+
+    // MARK: - Filtrage et tri
+    private func filterAndSortPokemons() -> [PokemonModel] {
+        pokemons
+            .filter { pokemon in
+                let matchesName = searchText.isEmpty || pokemon.name.localizedCaseInsensitiveContains(searchText)
+                let matchesType = (selectedType == "Tous") || (pokemon.primaryType.lowercased() == selectedType.lowercased())
+                return matchesName && matchesType
+            }
+            .sorted {
+                switch selectedSortOption {
+                case "Nom":      return $0.formattedName < $1.formattedName
+                case "Attaque":  return $0.attack > $1.attack
+                case "Défense":  return $0.defense > $1.defense
+                case "Vitesse":  return $0.speed > $1.speed
+                default:         return $0.formattedName < $1.formattedName
+                }
+            }
+    }
+
+    // MARK: - Mode Sombre
     private func darkModeToggle() -> some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
-            Button(action: { withAnimation { isDarkMode.toggle() } }) {
+            Button {
+                withAnimation {
+                    isDarkMode.toggle()
+                }
+            } label: {
                 Image(systemName: isDarkMode ? "moon.fill" : "sun.max.fill")
                     .foregroundColor(.primary)
                     .font(.title2)
@@ -131,27 +172,12 @@ struct ContentView: View {
         }
     }
 
-    // 📦 Chargement des Pokémon
-    private func loadPokemons() {
-        isLoading = true
-        Task {
-            do {
-                pokemons = try await PokemonAPI.shared.fetchPokemonList(limit: 10)
-                isLoading = false
-            } catch {
-                #if DEBUG
-                print("[⚠️ ERREUR] Échec de chargement des Pokémon : \(error.localizedDescription)")
-                #endif
-                isLoading = false
-            }
-        }
-    }
-
-    // 🔹 Affichage d'un Pokémon
+    // MARK: - Affichage d'un Pokémon (Row)
     private func pokemonRow(for pokemon: PokemonModel) -> some View {
         HStack {
-            // Chargement d'image
-            if let imageUrl = pokemon.sprites.frontDefault, let url = URL(string: imageUrl) {
+            // Image : Recharge si `nil`
+            if let frontURL = pokemon.sprites.frontDefault,
+               let url = URL(string: frontURL) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
@@ -159,33 +185,57 @@ struct ContentView: View {
                             .frame(width: 60, height: 60)
                             .clipShape(Circle())
                             .overlay(Circle().stroke(Color.red, lineWidth: 2))
-                            .transition(.scale)
                     case .failure:
                         placeholderImage()
                     case .empty:
                         ProgressView()
                     @unknown default:
-                        ProgressView()
+                        placeholderImage()
                     }
                 }
             } else {
+                // ❗ Forcer le chargement des détails si image manquante
                 placeholderImage()
+                    .task {
+                        if let detailUrl = pokemon.detailUrl {
+                            do {
+                                let updatedPokemon = try await PokemonAPI.shared.fetchPokemonDetails(from: detailUrl)
+                                if let index = pokemons.firstIndex(where: { $0.id == pokemon.id }) {
+                                    pokemons[index] = updatedPokemon
+                                }
+                            } catch {
+                                print("[⚠️ ERREUR] Impossible de récupérer l'image pour \(pokemon.name) : \(error)")
+                            }
+                        }
+                    }
             }
 
-            // Nom et Favori
-            Text(pokemon.formattedName)
-                .fontWeight(.bold)
-                .transition(.opacity)
-                .animation(.easeInOut, value: searchText)
+            // Nom et Type
+            VStack(alignment: .leading) {
+                Text(pokemon.formattedName)
+                    .fontWeight(.bold)
+                    .transition(.opacity)
+                Text("Type : \(pokemon.primaryType.capitalized)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .animation(.easeInOut, value: searchText)
 
             Spacer()
 
-            if favoriteManager.isFavorite(id: pokemon.id) {
-                Image(systemName: "star.fill")
-                    .foregroundColor(.yellow)
-                    .transition(.opacity)
-                    .animation(.easeInOut, value: pokemon.id)
+            // Bouton Favori
+            Button {
+                toggleFavorite(pokemon: pokemon)
+            } label: {
+                if isPokemonFavorite(pokemon) {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+                } else {
+                    Image(systemName: "star")
+                        .foregroundColor(.gray)
+                }
             }
+            .buttonStyle(.plain)
         }
         .padding(.vertical, 5)
         .background(Color(.systemGray6))
@@ -193,15 +243,52 @@ struct ContentView: View {
         .shadow(radius: 3)
     }
 
-    // 📷 Image placeholder
+
+    // MARK: - Placeholder Image
     private func placeholderImage() -> some View {
         Image(systemName: "photo")
             .resizable()
             .frame(width: 60, height: 60)
             .foregroundColor(.gray)
     }
+
+    // MARK: - Gestion des Favoris
+    private func toggleFavorite(pokemon: PokemonModel) {
+        if favoriteManager.favorites.contains(pokemon.id) {
+            favoriteManager.removeFromFavorites(pokemon.id)
+        } else {
+            favoriteManager.addToFavorites(pokemon)
+        }
+    }
+    // MARK: - Vérifier si un Pokémon est favori
+    private func isPokemonFavorite(_ pokemon: PokemonModel) -> Bool {
+        return favoriteManager.favorites.contains(pokemon.id)
+    }
 }
 
-#Preview {
-    ContentView()
+// MARK: - Gestion fiable des images
+struct ImageView: View {
+    @StateObject private var loader = ImageLoader()
+    let url: String?
+
+    var body: some View {
+        Group {
+            if let image = loader.image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                placeholder
+                    .onAppear { loader.load(from: url) }
+            }
+        }
+    }
+
+    private var placeholder: some View {
+        Image(systemName: "photo")
+            .resizable()
+            .scaledToFit()
+            .foregroundColor(.gray)
+            .frame(width: 60, height: 60)
+    }
 }
