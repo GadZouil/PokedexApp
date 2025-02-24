@@ -45,9 +45,8 @@ struct PokemonDetailView: View {
         return values.max() ?? 1.0
     }
     
-    /// Calcule la couleur de la barre en fonction du pourcentage (0 à 1) : rouge pour 0%, vert pour 100%
+    /// Calcule la couleur de la barre en fonction du pourcentage (0 à 1) : de rouge vif à vert vif
     private func colorForStatFill(fraction: CGFloat) -> Color {
-        // Pour une interpolation de la teinte : 0 (rouge vif) à 0.33 (vert vif)
         let hue = 0.33 * Double(fraction)
         return Color(hue: hue, saturation: 1, brightness: 1)
     }
@@ -58,7 +57,7 @@ struct PokemonDetailView: View {
     }
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 12) {
             // Image principale avec effet de zoom au clic
             if let imageUrl = pokemon.sprites.frontDefault,
                let url = URL(string: imageUrl) {
@@ -73,9 +72,7 @@ struct PokemonDetailView: View {
                             .scaleEffect(isZoomed ? 1.8 : 1.2)
                             .animation(.easeInOut(duration: 0.3), value: isZoomed)
                             .onTapGesture {
-                                withAnimation {
-                                    isZoomed.toggle()
-                                }
+                                withAnimation { isZoomed.toggle() }
                             }
                     case .failure:
                         placeholderImage
@@ -108,8 +105,22 @@ struct PokemonDetailView: View {
                 }
             }
             
+            // Mini-jeux (boutons) - espace réduit
+            HStack(spacing: 8) {
+                NavigationLink(destination: MemoryGameView(pokemons: allPokemons)) {
+                    Image(systemName: "puzzlepiece.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .padding(6)
+                        .background(Color.orange.opacity(0.8))
+                        .clipShape(Circle())
+                }
+                // D'autres boutons de mini-jeux pourront être ajoutés ici
+            }
+            
             // Statistiques principales avec barres de progression dynamiques
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("📈 Statistiques :")
                     .font(.headline)
                 ForEach(pokemon.stats, id: \.stat.name) { stat in
@@ -137,36 +148,37 @@ struct PokemonDetailView: View {
                     .padding(.horizontal)
                 }
             }
-            .padding()
+            .padding(.vertical, 4)
             
-            // Bouton Favori
-            Button(action: {
-                toggleFavorite()
-            }) {
-                HStack {
-                    Image(systemName: isPokemonFavorite ? "star.fill" : "star")
-                    Text(isPokemonFavorite ? "Retirer des favoris" : "Ajouter aux favoris")
+            // Boutons en bas (favori et combattre) avec espacement réduit
+            HStack(spacing: 8) {
+                Button(action: {
+                    toggleFavorite()
+                }) {
+                    HStack {
+                        Image(systemName: isPokemonFavorite ? "star.fill" : "star")
+                        Text(isPokemonFavorite ? "Retirer" : "Ajouter")
+                    }
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(isPokemonFavorite ? Color.red : Color.blue)
+                    .cornerRadius(10)
                 }
-                .foregroundColor(.white)
-                .padding()
-                .background(isPokemonFavorite ? Color.red : Color.blue)
-                .cornerRadius(12)
-            }
-            
-            // Bouton Combat qui ouvre la vue BattleView
-            NavigationLink(destination: BattleView(
-                leftPokemon: pokemon,
-                initialOpponent: randomOpponent(),
-                availableOpponents: allPokemons
-            )) {
-                HStack {
-                    Image(systemName: "bolt.fill")
-                    Text("Combattre")
+                
+                NavigationLink(destination: BattleView(
+                    leftPokemon: pokemon,
+                    initialOpponent: randomOpponent(),
+                    availableOpponents: allPokemons
+                )) {
+                    HStack {
+                        Image(systemName: "bolt.fill")
+                        Text("Combattre")
+                    }
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(Color.purple)
+                    .cornerRadius(10)
                 }
-                .foregroundColor(.white)
-                .padding()
-                .background(Color.purple)
-                .cornerRadius(12)
             }
             
             Spacer()
@@ -273,4 +285,3 @@ struct PokemonDetailView_Previews: PreviewProvider {
         }
     }
 }
-
