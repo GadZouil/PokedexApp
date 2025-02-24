@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
+import Combine
 
 struct MemoryGameView: View {
     let pokemons: [PokemonModel]
-    
+    let selectedPokemon: PokemonModel  // Le Pokémon sur lequel l'utilisateur a cliqué
+
     // Niveaux de difficulté
     let difficulties = ["Facile", "Moyen", "Difficile"]
     @State private var selectedDifficulty: String = "Facile"
@@ -18,12 +20,18 @@ struct MemoryGameView: View {
     @State private var pairsCount: Int = 4
     @State private var maxMoves: Int = 20
     
+    // Durée du jeu en secondes (déclarée une seule fois)
+    let gameDuration: TimeInterval = 15
+    @State private var timeRemaining: TimeInterval = 15
+    @State private var score: Int = 0
+    
     // Définition d'une carte pour le jeu
     struct Card: Identifiable {
         let id = UUID()
-        let content: String // URL de l'image du Pokémon
+        let content: String  // URL de l'image du Pokémon
         var isFaceUp = false
         var isMatched = false
+        let isBonus: Bool    // Vrai pour la carte bonus (celle du Pokémon sélectionné)
     }
     
     @State private var cards: [Card] = []
@@ -35,8 +43,27 @@ struct MemoryGameView: View {
     // Disposition en grille (3 colonnes)
     let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
     
+    // Pour animer la carte bonus qui s'envole
+    @State private var bonusOffset: CGFloat = 0
+    @State private var bonusOpacity: Double = 1.0
+    
+    // Pour le contrôle des taps afin d'éviter les doubles clics rapides
+    @State private var isProcessingTap = false
+    
+    // Pour le timer du jeu
+    @State private var timerCancellable: AnyCancellable?
+    
+    // Dimensions de la zone de jeu
+    @State private var gameAreaSize: CGSize = .zero
+    
+    // Pour positionner la carte normale
+    @State private var currentPosition: CGPoint = .zero
+    @State private var currentPokemonURL: String = ""
+    @State private var animatePokemon = false
+    
     var body: some View {
         VStack(spacing: 8) {
+            // Titre et Picker de difficulté
             HStack {
                 Text("Jeu de Mémoire")
                     .font(.title)
@@ -49,7 +76,7 @@ struct MemoryGameView: View {
                 }
                 .pickerStyle(MenuPickerStyle())
                 .padding(.trailing, 8)
-                .onChange(of: selectedDifficulty) { _ in
+                .onChange(of: selectedDifficulty) { oldValue, newValue in
                     setupGame()
                 }
             }
@@ -63,6 +90,8 @@ struct MemoryGameView: View {
                         .onTapGesture {
                             cardTapped(at: index)
                         }
+                        .offset(y: cards[index].isBonus ? bonusOffset : 0)
+                        .opacity(cards[index].isBonus ? bonusOpacity : 1)
                 }
             }
             .padding(8)
@@ -80,16 +109,18 @@ struct MemoryGameView: View {
             }
             
             Button("Recommencer") {
-                setupGame()
+                resetGame()
             }
             .padding(8)
         }
         .navigationTitle("Jeu de Mémoire")
         .onAppear {
             setupGame()
+            startGameTimer()
         }
     }
     
+    // Configuration du jeu
     func setupGame() {
         // Ajuster le nombre de paires et le nombre maximum de coups selon la difficulté
         switch selectedDifficulty {
@@ -100,8 +131,8 @@ struct MemoryGameView: View {
             pairsCount = 6
             maxMoves = 25
         case "Difficile":
-            pairsCount = 7
-            maxMoves = 25
+            pairsCount = 8
+            maxMoves = 30
         default:
             pairsCount = 4
             maxMoves = 20
@@ -109,14 +140,20 @@ struct MemoryGameView: View {
         moves = 0
         gameOver = false
         victory = false
+        bonusOffset = 0
+        bonusOpacity = 1.0
         
-        // Sélectionnez aléatoirement 'pairsCount' Pokémon
+        // Sélectionner aléatoirement 'pairsCount' Pokémon pour créer des paires
         let selected = pokemons.shuffled().prefix(pairsCount)
         var newCards: [Card] = []
         for pokemon in selected {
             let imageURL = pokemon.sprites.frontDefault ?? ""
-            newCards.append(Card(content: imageURL))
-            newCards.append(Card(content: imageURL))
+            newCards.append(Card(content: imageURL, isBonus: false))
+            newCards.append(Card(content: imageURL, isBonus: false))
+        }
+        // Ajout de la carte bonus correspondant au Pokémon sélectionné
+        if let bonusURL = selectedPokemon.sprites.frontDefault {
+            newCards.append(Card(content: bonusURL, isBonus: true))
         }
         cards = newCards.shuffled()
         firstSelectedIndex = nil
@@ -130,13 +167,19 @@ struct MemoryGameView: View {
             cards[index].isFaceUp = true
         }
         
+        // Si c'est la carte bonus, déclencher l'animation spéciale
+        if cards[index].isBonus {
+            bonusTapped(at: index)
+            return
+        }
+        
         if let firstIndex = firstSelectedIndex {
             moves += 1
             if cards[index].content == cards[firstIndex].content {
                 // Appariement trouvé
                 cards[index].isMatched = true
                 cards[firstIndex].isMatched = true
-                if cards.allSatisfy({ $0.isMatched }) {
+                if cards.allSatisfy({ $0.isMatched || $0.isBonus }) {
                     victory = true
                 }
             } else {
@@ -153,9 +196,54 @@ struct MemoryGameView: View {
             firstSelectedIndex = index
         }
         
-        if moves >= maxMoves && !cards.allSatisfy({ $0.isMatched }) {
+        if moves >= maxMoves && !cards.allSatisfy({ $0.isMatched || $0.isBonus }) {
             gameOver = true
         }
+    }
+    
+    // Action spéciale pour la carte bonus
+    func bonusTapped(at index: Int) {
+        guard !isProcessingTap else { return }
+        isProcessingTap = true
+        score += 2  // Bonus de score
+        // Attendre 0.3 seconde avant d'animer l'envol pour laisser le temps de se retourner
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeInOut(duration: 0.5)) {
+                bonusOffset = -100  // La carte s'envole vers le haut
+                bonusOpacity = 0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if let idx = cards.firstIndex(where: { $0.isBonus }) {
+                    cards.remove(at: idx)
+                }
+                isProcessingTap = false
+            }
+        }
+    }
+
+    
+    func resetGame() {
+        timeRemaining = gameDuration
+        score = 0
+        moves = 0
+        gameOver = false
+        victory = false
+        startGameTimer()
+        setupGame()
+    }
+    
+    // Démarrer le timer du jeu
+    func startGameTimer() {
+        timerCancellable?.cancel()
+        timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { _ in
+                if timeRemaining > 0 {
+                    timeRemaining -= 1
+                } else {
+                    timerCancellable?.cancel()
+                }
+            }
     }
 }
 
@@ -183,7 +271,6 @@ struct CardView: View {
                     .cornerRadius(8)
             }
         }
-        // Animation de flip 3D
         .rotation3DEffect(
             .degrees(card.isFaceUp || card.isMatched ? 0 : 180),
             axis: (x: 0, y: 1, z: 0)
@@ -202,6 +289,6 @@ struct MemoryGameView_Previews: PreviewProvider {
             stats: [],
             detailUrl: nil
         )
-        MemoryGameView(pokemons: Array(repeating: dummyPokemon, count: 10))
+        MemoryGameView(pokemons: Array(repeating: dummyPokemon, count: 10), selectedPokemon: dummyPokemon)
     }
 }
