@@ -171,7 +171,7 @@ struct MemoryGameView: View {
         if cards[index].isBonus {
             bonusTapped(at: index)
             return
-        }
+        }		
         
         if let firstIndex = firstSelectedIndex {
             moves += 1
