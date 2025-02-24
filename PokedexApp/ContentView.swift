@@ -121,7 +121,7 @@ struct ContentView: View {
         isLoading = true
         Task {
             do {
-                pokemons = try await PokemonAPI.shared.fetchPokemonList(limit: 151)
+                pokemons = try await PokemonAPI.shared.fetchPokemonList(limit: 1025)
 
                 // Vérification des images manquantes et second fetch
                 var updatedPokemons = pokemons
