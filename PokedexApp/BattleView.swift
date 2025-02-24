@@ -12,6 +12,7 @@ struct BattleView: View {
     let availableOpponents: [PokemonModel]
     
     @State private var opponent: PokemonModel
+    // Pour le moment, nous n'utilisons pas de background (code commenté ci-dessous)
     @State private var arenaURL: String = ""
     
     // Positions initiales (plus centrées)
@@ -67,7 +68,9 @@ struct BattleView: View {
     
     var body: some View {
         ZStack {
-            // Fond d'arène stable et recadré
+            // Pour le moment, pas de fond d'arène.
+            // Pour activer le background, décommentez le bloc ci-dessous :
+            /*
             AsyncImage(url: URL(string: arenaURL)) { phase in
                 if let image = phase.image {
                     image.resizable()
@@ -81,6 +84,9 @@ struct BattleView: View {
                     ProgressView().ignoresSafeArea()
                 }
             }
+            */
+            // Fond de repli
+            Color.white.ignoresSafeArea()
             
             // Effet flash lors d'une attaque
             if attackFlash {
@@ -214,15 +220,16 @@ struct BattleView: View {
         }
         .navigationBarTitle("Combat", displayMode: .inline)
         .onAppear {
+            // Si vous souhaitez activer le background, initialisez arenaURL ici
             if arenaURL.isEmpty {
                 arenaURL = randomArenaURL()
             }
         }
     }
     
-    // Lancement du combat (avec nouvelle arène)
+    // Lancement du combat (pour le moment, sans fond d'arène)
     func startBattle() {
-        arenaURL = randomArenaURL()  // Nouvelle arène pour chaque nouveau combat
+        arenaURL = randomArenaURL()  // Si vous souhaitez changer d'arène, décommentez cette ligne
         battleFinished = false
         winnerMessage = ""
         showConfetti = false
@@ -322,7 +329,7 @@ struct BattleView: View {
         startBattle()
     }
     
-    // Retourne une URL d'image d'arène aléatoire
+    // Retourne une URL d'image d'arène aléatoire (code actuellement commenté dans le body)
     func randomArenaURL() -> String {
         let urls = [
             "https://i.pinimg.com/736x/0a/d7/40/0ad740bdde2d5ed0f5a641ebefaff38b.jpg",

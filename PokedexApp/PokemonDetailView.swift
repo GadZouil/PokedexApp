@@ -9,11 +9,13 @@ import SwiftUI
 
 struct PokemonDetailView: View {
     let pokemon: PokemonModel
+    let allPokemons: [PokemonModel]  // Liste complète des Pokémon pour sélectionner un adversaire aléatoire
     @ObservedObject var favoriteManager = FavoriteManager.shared
 
     @State private var showAlert = false
     @State private var combatMessage = ""
-    
+    @State private var isZoomed = false  // Pour l'effet de zoom sur l'image principale
+
     // Fonction pour retourner une couleur selon le type
     func colorForType(_ type: String) -> Color {
         switch type.lowercased() {
@@ -36,15 +38,28 @@ struct PokemonDetailView: View {
         default:          return .gray
         }
     }
-
-    // Calculer si le Pokémon est favori
+    
+    /// Retourne le maximum trouvé parmi tous les Pokémon pour une stat donnée
+    private func maxStatValue(for statName: String) -> Double {
+        let values = allPokemons.map { Double($0.getStat(statName)) }
+        return values.max() ?? 1.0
+    }
+    
+    /// Calcule la couleur de la barre en fonction du pourcentage (0 à 1) : rouge pour 0%, vert pour 100%
+    private func colorForStatFill(fraction: CGFloat) -> Color {
+        // Pour une interpolation de la teinte : 0 (rouge vif) à 0.33 (vert vif)
+        let hue = 0.33 * Double(fraction)
+        return Color(hue: hue, saturation: 1, brightness: 1)
+    }
+    
+    // Vérifie si le Pokémon est favori
     private var isPokemonFavorite: Bool {
         favoriteManager.favorites.contains(pokemon.id)
     }
-
+    
     var body: some View {
         VStack(spacing: 20) {
-            // Image principale
+            // Image principale avec effet de zoom au clic
             if let imageUrl = pokemon.sprites.frontDefault,
                let url = URL(string: imageUrl) {
                 AsyncImage(url: url) { phase in
@@ -55,8 +70,13 @@ struct PokemonDetailView: View {
                             .frame(width: 200, height: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                             .shadow(radius: 10)
-                            .scaleEffect(1.2)
-                            .animation(.easeInOut(duration: 1), value: pokemon.id)
+                            .scaleEffect(isZoomed ? 1.8 : 1.2)
+                            .animation(.easeInOut(duration: 0.3), value: isZoomed)
+                            .onTapGesture {
+                                withAnimation {
+                                    isZoomed.toggle()
+                                }
+                            }
                     case .failure:
                         placeholderImage
                     case .empty:
@@ -88,19 +108,33 @@ struct PokemonDetailView: View {
                 }
             }
             
-            // Statistiques principales
+            // Statistiques principales avec barres de progression dynamiques
             VStack(alignment: .leading, spacing: 10) {
                 Text("📈 Statistiques :")
                     .font(.headline)
                 ForEach(pokemon.stats, id: \.stat.name) { stat in
-                    HStack {
-                        Text(stat.stat.name.capitalized)
-                        Spacer()
-                        Text("\(stat.baseStat)")
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(stat.stat.name.capitalized)
+                            Spacer()
+                            Text("\(stat.baseStat)")
+                        }
+                        GeometryReader { geo in
+                            let fraction = CGFloat(stat.baseStat) / CGFloat(maxStatValue(for: stat.stat.name))
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .frame(height: 8)
+                                    .foregroundColor(Color.gray.opacity(0.3))
+                                    .cornerRadius(4)
+                                Rectangle()
+                                    .frame(width: geo.size.width * fraction, height: 8)
+                                    .foregroundColor(colorForStatFill(fraction: fraction))
+                                    .cornerRadius(4)
+                            }
+                        }
+                        .frame(height: 8)
                     }
                     .padding(.horizontal)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(10)
                 }
             }
             .padding()
@@ -123,7 +157,7 @@ struct PokemonDetailView: View {
             NavigationLink(destination: BattleView(
                 leftPokemon: pokemon,
                 initialOpponent: randomOpponent(),
-                availableOpponents: sampleOpponents()
+                availableOpponents: allPokemons
             )) {
                 HStack {
                     Image(systemName: "bolt.fill")
@@ -164,9 +198,39 @@ struct PokemonDetailView: View {
         }
     }
     
-    // Retourne un tableau d'adversaires d'exemple
-    private func sampleOpponents() -> [PokemonModel] {
-        return [
+    /// Retourne un adversaire aléatoire parmi tous les Pokémon (différent du Pokémon affiché)
+    private func randomOpponent() -> PokemonModel {
+        let opponents = allPokemons.filter { $0.id != pokemon.id }
+        return opponents.randomElement() ?? pokemon
+    }
+    
+    // Vue placeholder pour l'image
+    private var placeholderImage: some View {
+        Image(systemName: "photo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 200, height: 200)
+            .foregroundColor(.gray)
+    }
+}
+
+struct PokemonDetailView_Previews: PreviewProvider {
+    static var previews: some View {
+        let bulbasaurStats: [PokemonStat] = [
+            PokemonStat(baseStat: 49, stat: StatInfo(name: "attack")),
+            PokemonStat(baseStat: 49, stat: StatInfo(name: "defense")),
+            PokemonStat(baseStat: 45, stat: StatInfo(name: "speed"))
+        ]
+        let bulbasaur = PokemonModel(
+            id: 1,
+            name: "Bulbasaur",
+            sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png"),
+            types: [PokemonType(type: TypeInfo(name: "grass"))],
+            stats: bulbasaurStats,
+            detailUrl: nil
+        )
+        let allPokemons: [PokemonModel] = [
+            bulbasaur,
             PokemonModel(
                 id: 25,
                 name: "Pikachu",
@@ -204,41 +268,9 @@ struct PokemonDetailView: View {
                 detailUrl: nil
             )
         ]
-    }
-    
-    // Retourne un adversaire random parmi sampleOpponents, différent du Pokémon affiché
-    private func randomOpponent() -> PokemonModel {
-        let opponents = sampleOpponents().filter { $0.id != pokemon.id }
-        return opponents.randomElement() ?? sampleOpponents()[0]
-    }
-    
-    // Vue placeholder pour l'image
-    private var placeholderImage: some View {
-        Image(systemName: "photo")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 200, height: 200)
-            .foregroundColor(.gray)
-    }
-}
-
-struct PokemonDetailView_Previews: PreviewProvider {
-    static var previews: some View {
-        let bulbasaurStats: [PokemonStat] = [
-            PokemonStat(baseStat: 49, stat: StatInfo(name: "attack")),
-            PokemonStat(baseStat: 49, stat: StatInfo(name: "defense")),
-            PokemonStat(baseStat: 45, stat: StatInfo(name: "speed"))
-        ]
-        let bulbasaur = PokemonModel(
-            id: 1,
-            name: "Bulbasaur",
-            sprites: PokemonSprites(frontDefault: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png"),
-            types: [PokemonType(type: TypeInfo(name: "grass"))],
-            stats: bulbasaurStats,
-            detailUrl: nil
-        )
         NavigationView {
-            PokemonDetailView(pokemon: bulbasaur)
+            PokemonDetailView(pokemon: bulbasaur, allPokemons: allPokemons)
         }
     }
 }
+

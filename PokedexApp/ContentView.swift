@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var selectedType: String = "Tous"
     @State private var selectedSortOption = "Nom"
     @State private var isDarkMode = false
+    @State private var showFavoritesOnly = false
 
     @ObservedObject var favoriteManager = FavoriteManager.shared
     @Environment(\.colorScheme) var colorScheme
@@ -29,26 +30,19 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             VStack {
-                // 🔍 Recherche et Filtres
+                // 🔍 Barre de recherche, filtres et bouton favoris intégré
                 searchAndFilterSection()
                 
-                //Button("Reset Favoris") {
-                //    FavoriteManager.shared.resetFavorites()
-                //}
-                //.padding()
-                //.background(Color.red)
-                //.foregroundColor(.white)
-                //.cornerRadius(8)
-
                 // 🕐 Chargement
                 if isLoading {
-                    ProgressView("Chargement des Pokémon...").padding()
+                    ProgressView("Chargement des Pokémon...")
+                        .padding()
                 } else {
                     let filteredPokemons = filterAndSortPokemons()
                     ScrollView {
                         LazyVStack(spacing: 10) {
                             ForEach(filteredPokemons) { pokemon in
-                                NavigationLink(destination: PokemonDetailView(pokemon: pokemon)) {
+                                NavigationLink(destination: PokemonDetailView(pokemon: pokemon, allPokemons: pokemons)) {
                                     pokemonRow(for: pokemon)
                                 }
                             }
@@ -72,16 +66,34 @@ struct ContentView: View {
     // MARK: - Barre de recherche et filtres
     private func searchAndFilterSection() -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("🔍 Recherche et Filtres")
-                .font(.headline)
-                .padding(.horizontal)
-
+            // Ligne de titre et bouton favoris
+            HStack {
+                Text("🔍 Recherche et Filtres")
+                    .font(.headline)
+                Spacer()
+                // Bouton compact pour afficher uniquement les favoris
+                Button(action: {
+                    showFavoritesOnly.toggle()
+                }) {
+                    Image(systemName: showFavoritesOnly ? "star.fill" : "star")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .foregroundColor(showFavoritesOnly ? .yellow : .gray)
+                        .padding(6)
+                        .background(Color.orange.opacity(0.7))
+                        .clipShape(Circle())
+                }
+                .accessibilityLabel("Afficher uniquement les favoris")
+            }
+            .padding(.horizontal)
+            
             TextField("Rechercher un Pokémon...", text: $searchText)
                 .padding(10)
                 .background(Color(.systemGray6))
                 .cornerRadius(8)
                 .padding(.horizontal)
-
+            
             HStack {
                 Text("Type :")
                 Picker("Type", selection: $selectedType) {
@@ -92,7 +104,7 @@ struct ContentView: View {
                 .pickerStyle(MenuPickerStyle())
             }
             .padding(.horizontal)
-
+            
             Picker("Trier par", selection: $selectedSortOption) {
                 ForEach(sortOptions, id: \.self) { option in
                     Text(option)
@@ -111,15 +123,15 @@ struct ContentView: View {
             do {
                 pokemons = try await PokemonAPI.shared.fetchPokemonList(limit: 151)
 
-                // 🔍 Vérification des images manquantes et second fetch
+                // Vérification des images manquantes et second fetch
                 var updatedPokemons = pokemons
                 for index in updatedPokemons.indices {
-                    if updatedPokemons[index].sprites.frontDefault == nil, let url = updatedPokemons[index].detailUrl {
+                    if updatedPokemons[index].sprites.frontDefault == nil,
+                       let url = updatedPokemons[index].detailUrl {
                         let fullDetails = try await PokemonAPI.shared.fetchPokemonDetails(from: url)
                         updatedPokemons[index] = fullDetails
                     }
                 }
-
                 pokemons = updatedPokemons
 
                 // Affiche les résultats dans la console
@@ -135,25 +147,25 @@ struct ContentView: View {
         }
     }
 
-
-
     // MARK: - Filtrage et tri
     private func filterAndSortPokemons() -> [PokemonModel] {
-        pokemons
-            .filter { pokemon in
-                let matchesName = searchText.isEmpty || pokemon.name.localizedCaseInsensitiveContains(searchText)
-                let matchesType = (selectedType == "Tous") || (pokemon.primaryType.lowercased() == selectedType.lowercased())
-                return matchesName && matchesType
+        var filtered = pokemons.filter { pokemon in
+            let matchesName = searchText.isEmpty || pokemon.name.localizedCaseInsensitiveContains(searchText)
+            let matchesType = (selectedType == "Tous") || (pokemon.primaryType.lowercased() == selectedType.lowercased())
+            return matchesName && matchesType
+        }
+        if showFavoritesOnly {
+            filtered = filtered.filter { favoriteManager.favorites.contains($0.id) }
+        }
+        return filtered.sorted {
+            switch selectedSortOption {
+            case "Nom":      return $0.formattedName < $1.formattedName
+            case "Attaque":  return $0.attack > $1.attack
+            case "Défense":  return $0.defense > $1.defense
+            case "Vitesse":  return $0.speed > $1.speed
+            default:         return $0.formattedName < $1.formattedName
             }
-            .sorted {
-                switch selectedSortOption {
-                case "Nom":      return $0.formattedName < $1.formattedName
-                case "Attaque":  return $0.attack > $1.attack
-                case "Défense":  return $0.defense > $1.defense
-                case "Vitesse":  return $0.speed > $1.speed
-                default:         return $0.formattedName < $1.formattedName
-                }
-            }
+        }
     }
 
     // MARK: - Mode Sombre
@@ -181,7 +193,6 @@ struct ContentView: View {
     }
 
     // MARK: - Affichage d'un Pokémon (Row)
-    // Ajoutez cette fonction utilitaire (vous pouvez la placer dans ContentView ou dans une extension commune)
     func colorForType(_ type: String) -> Color {
         switch type.lowercased() {
         case "fire":      return .red
@@ -269,13 +280,10 @@ struct ContentView: View {
         }
         .padding(.vertical, 5)
         .padding(.horizontal)
-        // Le bandeau a pour fond la couleur du type principal, en légère transparence
         .background(colorForType(pokemon.primaryType).opacity(0.3))
         .cornerRadius(10)
         .shadow(radius: 3)
     }
-
-
 
     // MARK: - Placeholder Image
     private func placeholderImage() -> some View {
@@ -293,35 +301,17 @@ struct ContentView: View {
             favoriteManager.addToFavorites(pokemon)
         }
     }
-    // MARK: - Vérifier si un Pokémon est favori
+    
+    // Vérifier si un Pokémon est favori
     private func isPokemonFavorite(_ pokemon: PokemonModel) -> Bool {
         return favoriteManager.favorites.contains(pokemon.id)
     }
 }
 
-// MARK: - Gestion fiable des images
-struct ImageView: View {
-    @StateObject private var loader = ImageLoader()
-    let url: String?
-
-    var body: some View {
-        Group {
-            if let image = loader.image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-            } else {
-                placeholder
-                    .onAppear { loader.load(from: url) }
-            }
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationView {
+            ContentView()
         }
-    }
-
-    private var placeholder: some View {
-        Image(systemName: "photo")
-            .resizable()
-            .scaledToFit()
-            .foregroundColor(.gray)
-            .frame(width: 60, height: 60)
     }
 }

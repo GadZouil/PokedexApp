@@ -35,6 +35,8 @@ struct PokemonModel: Codable, Identifiable, Equatable, Hashable {
     var hp: Int { getStat("hp") }
     var attack: Int { getStat("attack") }
     var defense: Int { getStat("defense") }
+    var specialAttack: Int { getStat("special-attack") }
+    var specialDefense: Int { getStat("special-defense") }
     var speed: Int { getStat("speed") }
 
     /// Recherche la stat par nom ("attack", "defense", "speed", "hp").
