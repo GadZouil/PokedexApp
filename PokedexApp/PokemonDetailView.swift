@@ -126,7 +126,7 @@ struct PokemonDetailView: View {
                     .clipShape(Circle())
                 }
                 NavigationLink(destination: FlappyPokemonView(selectedPokemon: pokemon)) {
-                    Image(systemName: "wing.fill")
+                    Image(systemName: "wind")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 24, height: 24)
@@ -142,6 +142,15 @@ struct PokemonDetailView: View {
                     .padding(6)
                     .background(Color.orange.opacity(0.8))
                     .clipShape(Circle())
+                }
+                NavigationLink(destination: PokemonVsZombiesVerticalView(allPokemons: allPokemons, selectedPokemon: pokemon)) {
+                    Image(systemName: "leaf.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .padding(6)
+                        .background(Color.orange.opacity(0.8))
+                        .clipShape(Circle())
                 }
                 // D'autres boutons de mini-jeux pourront être ajoutés ici
             }
