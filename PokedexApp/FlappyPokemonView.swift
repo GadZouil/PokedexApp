@@ -13,7 +13,7 @@ struct FlappyPokemonView: View {
 
     // Constants du jeu
     let gravity: Double = 0.1          // Vitesse de gravité réduite
-    let flapStrength: Double = -5
+    let flapStrength: Double = -4
     let gameTimerInterval: TimeInterval = 0.02
     let obstacleSpeed: CGFloat = 2.0
     let obstacleWidth: CGFloat = 60

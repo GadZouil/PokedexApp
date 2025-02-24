@@ -134,7 +134,15 @@ struct PokemonDetailView: View {
                     .background(Color.orange.opacity(0.8))
                     .clipShape(Circle())
                 }
-
+                NavigationLink(destination: PokemonManagerView(selectedPokemon: pokemon)) {
+                    Image(systemName: "building.2.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
+                    .padding(6)
+                    .background(Color.orange.opacity(0.8))
+                    .clipShape(Circle())
+                }
                 // D'autres boutons de mini-jeux pourront être ajoutés ici
             }
             
