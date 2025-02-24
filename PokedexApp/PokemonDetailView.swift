@@ -116,6 +116,15 @@ struct PokemonDetailView: View {
                         .background(Color.orange.opacity(0.8))
                         .clipShape(Circle())
                 }
+                NavigationLink(destination: CatchGameView(pokemons: allPokemons)) {
+                    Image(systemName: "hare.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .padding(6)
+                        .background(Color.pink.opacity(0.8))
+                        .clipShape(Circle())
+                }
                 // D'autres boutons de mini-jeux pourront être ajoutés ici
             }
             
